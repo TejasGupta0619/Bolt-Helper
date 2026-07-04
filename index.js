@@ -2,14 +2,14 @@
  * @file Bolt Helper — Discord bot entry point.
  */
 
-import { Client, Events, GatewayIntentBits } from 'discord.js';
-import dotenv from 'dotenv';
+import { Client, Events, GatewayIntentBits } from "discord.js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 /**
  * Resolved environment configuration.
- * @type {import('./types.js').EnvConfig}
+ * @type {import('./src/types/types.js').EnvConfig}
  */
 const env = {
   DISCORD_TOKEN: process.env.DISCORD_TOKEN,
@@ -17,19 +17,19 @@ const env = {
 
 /**
  * Registry of slash commands keyed by command name.
- * @type {import('./types.js').CommandRegistry}
+ * @type {import('./src/types/types.js').CommandRegistry}
  */
 const commands = new Map();
 
 /**
  * The `ping` slash command.
- * @type {import('./types.js').Command}
+ * @type {import('./src/types/types.js').Command}
  */
 const pingCommand = {
-  name: 'ping',
-  description: 'Replies with Pong!',
+  name: "ping",
+  description: "Replies with Pong!",
   async execute(interaction) {
-    await interaction.reply('Pong!');
+    await interaction.reply("Pong!");
   },
 };
 commands.set(pingCommand.name, pingCommand);
@@ -49,8 +49,8 @@ client.once(Events.ClientReady, (readyClient) => {
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
 
-  if (message.content === '!ping') {
-    await message.reply('Pong!');
+  if (message.content === "!ping") {
+    await message.reply("Pong!");
   }
 });
 
@@ -65,7 +65,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 const token = env.DISCORD_TOKEN;
 if (!token) {
-  console.error('Missing DISCORD_TOKEN in environment variables.');
+  console.error("Missing DISCORD_TOKEN in environment variables.");
   process.exit(1);
 }
 
