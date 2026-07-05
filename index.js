@@ -2,8 +2,12 @@
  * @file Bolt Helper — Discord bot entry point.
  */
 
-import { Client, Events, GatewayIntentBits } from "discord.js";
+import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import dotenv from "dotenv";
+import path from "node:path";
+import fs from "node:fs";
+import connection from "./db/connection.js";
+import { disconnectModel } from "./db/schemas/disconnects.model.js";
 dotenv.config();
 
 /**
@@ -18,48 +22,78 @@ const env = {
  * Registry of slash commands keyed by command name.
  * @type {import('./src/types/types.js').CommandRegistry}
  */
-const commands = new Map();
 
+//commands.set(ping.name, ping);
 /**
- * The `ping` slash command.
- * @type {import('./src/types/types.js').Command}
+ * Registry of slash commands keyed by command name.
+ * @type {import('./src/types/types.js').client}
  */
-const pingCommand = {
-  name: "ping",
-  description: "Replies with Pong!",
-  async execute(interaction) {
-    await interaction.reply("Pong!");
-  },
-};
-commands.set(pingCommand.name, pingCommand);
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent,
   ],
 });
 
-client.once(Events.ClientReady, (readyClient) => {
+client.once(Events.ClientReady, async (readyClient) => {
+  disconnectModel.sync();
+  await connection.initSequelize();
   console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 });
 
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return;
+client.commands = new Collection();
 
-  if (message.content === "!ping") {
-    await message.reply("Pong!");
+const foldersPath = path.join(import.meta.dirname, "/src/commands");
+const commandFolders = fs.readdirSync(foldersPath);
+for (const folder of commandFolders) {
+  const commandsPath = path.join(foldersPath, folder);
+  const commandFiles = fs.readdirSync(commandsPath).filter((file) => file.endsWith(".js"));
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const { default: command } = await import(filePath);
+    // Set a new item in the Collection with the key as the command name and the value as the exported module
+    if ("data" in command && "execute" in command) {
+      client.commands.set(command.data.name, command);
+    } else {
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
+      );
+    }
   }
-});
+}
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
+  /**
+   * @type {import('./src/types/types.js').client}
+   */
 
-  const command = commands.get(interaction.commandName);
-  if (!command) return;
+  const client = interaction.client;
 
-  await command.execute(interaction);
+  const command = client.commands.get(interaction.commandName);
+  if (!command) {
+    console.error(`No command matching ${interaction.commandName} was found.`);
+    return;
+  }
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: "There was an error while executing this command!",
+        flags: MessageFlags.Ephemeral,
+      });
+    } else {
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+  }
 });
 
 const token = env.DISCORD_TOKEN;

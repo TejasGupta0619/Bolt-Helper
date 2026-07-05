@@ -13,7 +13,9 @@
   "type": "module",
   "dependencies": {
     "discord.js": "^14.26.4",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "mysql2": "^3.22.5",
+    "sequelize": "^6.37.8"
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
